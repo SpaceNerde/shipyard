@@ -1,7 +1,7 @@
 use std::fs;
 
-use pulldown_cmark::{html, Event, Options, Parser, Tag, TagEnd};
-use saphyr::{LoadableYamlNode, Yaml, YamlEmitter};
+use pulldown_cmark::{Options, Parser, html};
+use saphyr::{LoadableYamlNode, Yaml};
 use tera::Tera;
 
 fn get_metadata(data: &mut String) -> Option<String> {
@@ -18,30 +18,33 @@ fn get_metadata(data: &mut String) -> Option<String> {
 }
 
 fn main() {
-    let mut file = fs::read_to_string("test/test_file.md").unwrap();
-    let template_file = fs::read_to_string("test/test_template.html").unwrap();
+    let file = fs::read_to_string("test/test.md").unwrap();
 
     // Parse Markdown to data
     // Get the metadata
-    let mut metadata_buffer = get_metadata(&mut file.clone()).unwrap();
+    let metadata_buffer = get_metadata(&mut file.clone()).unwrap();
 
     let yaml = Yaml::load_from_str(&metadata_buffer).unwrap();
 
-    let title = yaml[0].as_mapping().unwrap().get_key_value(
-        &Yaml::Value(saphyr::Scalar::String(std::borrow::Cow::Borrowed("title")))
-    ).unwrap().1.as_str().unwrap();
-
-    println!("{:?}", title);
+    let title = yaml[0]
+        .as_mapping()
+        .unwrap()
+        .get_key_value(&Yaml::Value(saphyr::Scalar::String(
+            std::borrow::Cow::Borrowed("title"),
+        )))
+        .unwrap()
+        .1
+        .as_str()
+        .unwrap();
 
     // Get the rest of the HTML
     let mut options = Options::empty();
     options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
 
     let parser = Parser::new_ext(file.trim(), options);
-  
+
     let mut html_buffer = String::new();
     html::push_html(&mut html_buffer, parser);
-
 
     // Insert Data into template and save into file
     let tera = Tera::new("test/**/*").unwrap();
@@ -50,6 +53,6 @@ fn main() {
     ctx.insert("title", title);
     ctx.insert("body_html", &html_buffer);
 
-    let rendered = tera.render("test_template.html", &ctx).unwrap();
+    let rendered = tera.render("template.html", &ctx).unwrap();
     fs::write("test/test_output.html", rendered).unwrap();
 }
