@@ -11,16 +11,18 @@ struct Site<'yaml> {
     posts_dir: String,
     html: String,
     yaml: Vec<Yaml<'yaml>>,
+    tera: Tera,
 }
 
 impl<'yaml> Site<'yaml> {
     fn new() -> Self {
         Site {
             output_dir: "./output".to_string(),
-            template_dir: "./templates/**/*".to_string(),
+            template_dir: "./templates/**/*.html".to_string(),
             posts_dir: "./posts".to_string(),
             html: String::new(),
             yaml: vec![],
+            tera: Tera::default(),
         }
     }
 
@@ -42,10 +44,7 @@ impl<'yaml> Site<'yaml> {
         html::push_html(&mut self.html, parser);
     }
 
-    fn generate(&mut self) {
-        // Insert Data into template and save into file
-        let tera = Tera::new(&self.template_dir).unwrap();
-
+    fn index(&mut self) {
         let title = self.yaml[0]
             .as_mapping()
             .unwrap()
@@ -61,8 +60,31 @@ impl<'yaml> Site<'yaml> {
         ctx.insert("title", title);
         ctx.insert("body_html", &self.html);
 
-        let rendered = tera.render("template.html", &ctx).unwrap();
-        fs::write(format!("{}/test_output.html", self.output_dir), rendered).unwrap();
+        let rendered = self.tera.render("index.html", &ctx).unwrap();
+        fs::write(format!("{}/index.html", self.output_dir), rendered).unwrap();
+    }
+
+    fn about(&mut self) {
+        let mut ctx = tera::Context::new();
+
+        ctx.insert("title", "about");
+
+        let rendered = self.tera.render("about.html", &ctx).unwrap();
+        fs::write(format!("{}/about.html", self.output_dir), rendered).unwrap();
+    }
+
+    fn generate(&mut self) {
+        // Insert Data into template and save into file
+        self.tera = match Tera::new(&self.template_dir) {
+            Ok(t) => t,
+            Err(e) => {
+                println!("Parsing error(s): {}", e);
+                ::std::process::exit(1);
+            }
+        };
+
+        self.index();
+        self.about();
     }
 
     fn get_metadata(&self, data: &mut String) -> Option<String> {
