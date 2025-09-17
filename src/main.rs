@@ -2,7 +2,7 @@ use std::fs;
 
 use pulldown_cmark::{Options, Parser, html};
 use saphyr::{LoadableYamlNode, Yaml};
-use tera::Tera;
+use tera::{Context, Tera};
 
 #[derive(Debug, Clone)]
 struct Site<'yaml> {
@@ -44,32 +44,31 @@ impl<'yaml> Site<'yaml> {
         html::push_html(&mut self.html, parser);
     }
 
-    fn index(&mut self) {
-        let title = self.yaml[0]
-            .as_mapping()
-            .unwrap()
-            .get_key_value(&Yaml::Value(saphyr::Scalar::String(
-                std::borrow::Cow::Borrowed("title"),
-            )))
-            .unwrap()
-            .1
-            .as_str()
-            .unwrap();
-        let mut ctx = tera::Context::new();
+    fn get_context(&self) -> Context {
+        let mut ctx = Context::new();
 
-        ctx.insert("title", title);
+        // yeah it aint a beauty but it will do for now
+        let _ = self.yaml[0].clone().into_mapping().map(|yaml| {
+            for key in yaml.keys() {
+                ctx.insert(
+                    key.as_str().unwrap(),
+                    &yaml.get_key_value(key).unwrap().0.as_str(),
+                );
+            }
+        });
+
         ctx.insert("body_html", &self.html);
 
-        let rendered = self.tera.render("index.html", &ctx).unwrap();
+        ctx
+    }
+
+    fn index(&mut self) {
+        let rendered = self.tera.render("index.html", &self.get_context()).unwrap();
         fs::write(format!("{}/index.html", self.output_dir), rendered).unwrap();
     }
 
     fn about(&mut self) {
-        let mut ctx = tera::Context::new();
-
-        ctx.insert("title", "about");
-
-        let rendered = self.tera.render("about.html", &ctx).unwrap();
+        let rendered = self.tera.render("about.html", &self.get_context()).unwrap();
         fs::write(format!("{}/about.html", self.output_dir), rendered).unwrap();
     }
 
