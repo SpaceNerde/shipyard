@@ -61,17 +61,7 @@ impl<'yaml> Site<'yaml> {
 
         ctx
     }
-
-    fn index(&mut self) {
-        let rendered = self.tera.render("index.html", &self.get_context()).unwrap();
-        fs::write(format!("{}/index.html", self.output_dir), rendered).unwrap();
-    }
-
-    fn about(&mut self) {
-        let rendered = self.tera.render("about.html", &self.get_context()).unwrap();
-        fs::write(format!("{}/about.html", self.output_dir), rendered).unwrap();
-    }
-
+    
     fn generate(&mut self) {
         // Insert Data into template and save into file
         self.tera = match Tera::new(&self.template_dir) {
@@ -82,8 +72,10 @@ impl<'yaml> Site<'yaml> {
             }
         };
 
-        self.index();
-        self.about();
+        self.tera.get_template_names().for_each(|template| {
+            let rendered = self.tera.render(template, &self.get_context()).unwrap();
+            fs::write(format!("{}/{}", self.output_dir, template), rendered).unwrap();
+        });
     }
 
     fn get_metadata(&self, data: &mut String) -> Option<String> {
